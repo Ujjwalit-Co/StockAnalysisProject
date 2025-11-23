@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Search, Plus, TrendingUp, TrendingDown, Download, RefreshCw, ExternalLink, Trash2, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
@@ -62,6 +63,8 @@ export default function StockComparisonDashboard() {
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [stockMatrix, setStockMatrix] = useState<StockMatrixData>({})
   const [showMatrix, setShowMatrix] = useState(true)
+  const [sortOrder, setSortOrder] = useState('high-to-low')
+  const [minPrice, setMinPrice] = useState('')
 
   // Fetch stocks from API
   const fetchStocks = async (force = false) => {
@@ -90,39 +93,39 @@ export default function StockComparisonDashboard() {
     }
   }
 
-          // Build stock matrix data
-          const buildStockMatrix = (stockList: Stock[]) => {
-            const matrix: StockMatrixData = {}
-            
-            stockList.forEach(stock => {
-              if (!matrix[stock.symbol]) {
-                matrix[stock.symbol] = {}
-              }
-      
-              // Ensure historical data is sorted by date ascending for correct change calculation
-              const sortedHistorical = stock.historical?.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) || []
-      
-              for (let i = 0; i < sortedHistorical.length; i++) {
-                const currentPriceData = sortedHistorical[i]
-                const previousPriceData = sortedHistorical[i - 1]
-      
-                const date = new Date(currentPriceData.date).toISOString().split('T')[0]
-                
-                const change = previousPriceData ? currentPriceData.close - previousPriceData.close : 0
-                const changePercent = previousPriceData && previousPriceData.close > 0 
-                  ? ((currentPriceData.close - previousPriceData.close) / previousPriceData.close) * 100 
-                  : 0
-                
-                matrix[stock.symbol][date] = {
-                  price: currentPriceData.close,
-                  change: change,
-                  changePercent: changePercent
-                }
-              }
-            })
-            
-            setStockMatrix(matrix)
-          }  // Search for stock symbols
+  // Build stock matrix data
+  const buildStockMatrix = (stockList: Stock[]) => {
+    const matrix: StockMatrixData = {}
+
+    stockList.forEach(stock => {
+      if (!matrix[stock.symbol]) {
+        matrix[stock.symbol] = {}
+      }
+
+      // Ensure historical data is sorted by date ascending for correct change calculation
+      const sortedHistorical = stock.historical?.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) || []
+
+      for (let i = 0; i < sortedHistorical.length; i++) {
+        const currentPriceData = sortedHistorical[i]
+        const previousPriceData = sortedHistorical[i - 1]
+
+        const date = new Date(currentPriceData.date).toISOString().split('T')[0]
+
+        const change = previousPriceData ? currentPriceData.close - previousPriceData.close : 0
+        const changePercent = previousPriceData && previousPriceData.close > 0
+          ? ((currentPriceData.close - previousPriceData.close) / previousPriceData.close) * 100
+          : 0
+
+        matrix[stock.symbol][date] = {
+          price: currentPriceData.close,
+          change: change,
+          changePercent: changePercent
+        }
+      }
+    })
+
+    setStockMatrix(matrix)
+  }  // Search for stock symbols
   const searchStocks = async (query: string) => {
     if (query.length < 2) {
       setSearchResults([])
@@ -158,7 +161,7 @@ export default function StockComparisonDashboard() {
       const response = await fetch(`/api/stocks/${symbol}`, {
         method: 'DELETE'
       })
-      
+
       if (response.ok) {
         toast.success(`${symbol} removed from watchlist`)
         fetchStocks()
@@ -188,7 +191,7 @@ export default function StockComparisonDashboard() {
 
       if (response.ok) {
         const stockData = await response.json()
-        
+
         toast.success(`${stockData.symbol} added to watchlist`)
         setNewStockSymbol('')
         setSymbolSearchTerm('')
@@ -236,7 +239,7 @@ export default function StockComparisonDashboard() {
       const day = date.getDay() // Sunday - 0, Monday - 1, ..., Saturday - 6
       return day !== 0 && day !== 6 // Exclude Sunday (0) and Saturday (6)
     })
-    
+
     return tradingDates.sort().reverse().slice(0, 30) // Show last 30 trading dates
   }
 
@@ -304,10 +307,18 @@ export default function StockComparisonDashboard() {
   }, [symbolSearchTerm])
 
   const dates = getSortedDates()
-  const filteredStocks = stocks.filter(stock =>
-    stock.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    stock.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredStocks = stocks
+    .filter(stock => {
+      const matchesSearch = stock.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        stock.name.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesPrice = minPrice ? (stock.currentPrice || 0) >= parseFloat(minPrice) : true
+      return matchesSearch && matchesPrice
+    })
+    .sort((a, b) => {
+      const priceA = a.currentPrice || 0
+      const priceB = b.currentPrice || 0
+      return sortOrder === 'high-to-low' ? priceB - priceA : priceA - priceB
+    })
 
   if (isInitialLoading) {
     return (
@@ -398,7 +409,7 @@ export default function StockComparisonDashboard() {
                       className="pl-10"
                     />
                   </div>
-                  
+
                   {/* Search Results */}
                   {isSearching ? (
                     <div className="max-h-60 overflow-y-auto border rounded-md">
@@ -445,9 +456,9 @@ export default function StockComparisonDashboard() {
                   {/* Symbol Finder Link */}
                   <div className="text-sm text-muted-foreground">
                     <span>Can't find your stock? </span>
-                    <a 
-                      href="https://finance.yahoo.com/lookup/india?s=.NS" 
-                      target="_blank" 
+                    <a
+                      href="https://finance.yahoo.com/lookup/india?s=.NS"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:underline inline-flex items-center gap-1"
                     >
@@ -465,10 +476,10 @@ export default function StockComparisonDashboard() {
                     onChange={(e) => setNewStockSymbol(e.target.value.toUpperCase())}
                     onKeyPress={(e) => e.key === 'Enter' && handleAddStock(newStockSymbol)}
                   />
-                  
-                  <Button 
-                    onClick={() => handleAddStock(newStockSymbol)} 
-                    disabled={isLoading || !newStockSymbol.trim()} 
+
+                  <Button
+                    onClick={() => handleAddStock(newStockSymbol)}
+                    disabled={isLoading || !newStockSymbol.trim()}
                     className="w-full"
                   >
                     {isLoading ? 'Adding...' : 'Add Stock'}
@@ -520,7 +531,7 @@ export default function StockComparisonDashboard() {
               {(() => {
                 const topGainer = stocks.reduce((max, stock) =>
                   (stock.changePercent || 0) > (max?.changePercent || 0) ? stock : max
-                , stocks[0])
+                  , stocks[0])
                 return topGainer ? (
                   <div>
                     <div className="text-lg font-bold text-green-600">{topGainer.symbol}</div>
@@ -544,7 +555,7 @@ export default function StockComparisonDashboard() {
               {(() => {
                 const topLoser = stocks.reduce((min, stock) =>
                   (stock.changePercent || 0) < (min?.changePercent || 0) ? stock : min
-                , stocks[0])
+                  , stocks[0])
                 return topLoser ? (
                   <div>
                     <div className="text-lg font-bold text-red-600">{topLoser.symbol}</div>
@@ -567,6 +578,25 @@ export default function StockComparisonDashboard() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
+            />
+          </div>
+          <div className="w-full sm:w-[200px]">
+            <Select value={sortOrder} onValueChange={setSortOrder}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="high-to-low">Price: High to Low</SelectItem>
+                <SelectItem value="low-to-high">Price: Low to High</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-full sm:w-[200px]">
+            <Input
+              type="number"
+              placeholder="Min Price (LTP)"
+              value={minPrice}
+              onChange={(e) => setMinPrice(e.target.value)}
             />
           </div>
         </div>
