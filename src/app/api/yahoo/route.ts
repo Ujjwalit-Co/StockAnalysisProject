@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       industry: quote.industry,
       marketCap: quote.marketCap,
       currency: 'INR',
-      exchange: symbol.includes('.NS') ? 'NSE' : 'BSE',
+      exchange: yahooSymbol.includes('.NS') ? 'NSE' : 'BSE',
     }
 
     await db.stock.upsert({
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
       week52Low: quote.fiftyTwoWeekLow,
       marketCap: quote.marketCap,
       currency: 'INR',
-      exchange: symbol.includes('.NS') ? 'NSE' : 'BSE',
+      exchange: yahooSymbol.includes('.NS') ? 'NSE' : 'BSE',
       sector: quote.sector,
       industry: quote.industry,
     }
@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
         const yahooSymbol = formatIndianSymbol(symbol)
 
         const quote = await yahoo.quote(yahooSymbol)
-        
+
         results.push({
           symbol: symbol,
           name: quote.longName || quote.shortName || symbol,
@@ -228,7 +228,7 @@ export async function GET(request: NextRequest) {
           week52Low: quote.fiftyTwoWeekLow,
           marketCap: quote.marketCap,
           currency: 'INR',
-          exchange: symbol.includes('.NS') ? 'NSE' : 'BSE',
+          exchange: yahooSymbol.includes('.NS') ? 'NSE' : 'BSE',
           sector: quote.sector,
           industry: quote.industry,
         })
