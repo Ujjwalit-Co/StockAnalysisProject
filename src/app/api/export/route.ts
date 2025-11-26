@@ -39,8 +39,9 @@ export async function GET(request: NextRequest) {
       } : {},
       include: {
         historical: {
-          orderBy: { date: 'asc' }, // Order by date ascending for easier pivoting
-          take: 30, // Last 30 days
+          // Fetch the most recent 30 entries first; we'll reorder for presentation below
+          orderBy: { date: 'desc' },
+          take: 30, // Last 30 days (most recent)
         },
       },
     })
@@ -98,10 +99,13 @@ export async function GET(request: NextRequest) {
       // Create Excel workbook
       const wb = XLSX.utils.book_new()
 
-      // Process data for Excel with actual red text formatting
+      // Ensure consistent header order: Symbol followed by the sorted dates
+      const headers = ['Symbol', ...sortedDates]
+
+      // Process data for Excel with actual red text formatting and consistent column ordering
       const excelData = transposedExportData.map(row => {
         const newRow: any = {}
-        Object.keys(row).forEach(key => {
+        headers.forEach(key => {
           const value = row[key]
           if (typeof value === 'string' && value.startsWith('[RED]')) {
             newRow[key] = parseFloat(value.replace('[RED]', ''))
@@ -113,20 +117,18 @@ export async function GET(request: NextRequest) {
       })
 
       // Main sheet with transposed data (stocks as rows, dates as columns)
-      const ws1 = XLSX.utils.json_to_sheet(excelData)
+      const ws1 = XLSX.utils.json_to_sheet(excelData, { header: headers })
 
-      // Apply red color styling to cells that had [RED] markers
-      const range = XLSX.utils.decode_range(ws1['!ref'] || 'A1')
-
-      // Track which cells should be red
+      // Track which cells should be red (account for header row occupying the first row)
       const redCells: string[] = []
 
       transposedExportData.forEach((row, rowIndex) => {
-        Object.keys(row).forEach((key, colIndex) => {
+        headers.forEach((key, colIndex) => {
           if (key !== 'Symbol') {
             const value = row[key]
             if (typeof value === 'string' && value.startsWith('[RED]')) {
-              const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex })
+              // +1 for header row offset in the sheet
+              const cellAddress = XLSX.utils.encode_cell({ r: rowIndex + 1, c: colIndex })
               redCells.push(cellAddress)
             }
           }
@@ -167,7 +169,17 @@ export async function GET(request: NextRequest) {
       })
     } else {
       // CSV format - keep the [RED] markers for potential processing
-      const csv = Papa.unparse(transposedExportData)
+      // Ensure CSV columns are in the same consistent order as Excel
+      const csvOrdered = transposedExportData.map(row => {
+        const newRow: any = {}
+        const csvHeaders = ['Symbol', ...sortedDates]
+        csvHeaders.forEach(h => {
+          newRow[h] = row[h] ?? 'N/A'
+        })
+        return newRow
+      })
+
+      const csv = Papa.unparse(csvOrdered)
 
       return new NextResponse(csv, {
         headers: {
