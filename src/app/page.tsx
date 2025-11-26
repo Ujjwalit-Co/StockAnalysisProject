@@ -73,7 +73,7 @@ export default function StockComparisonDashboard() {
 
       if (force) {
         // Trigger background refresh and wait for it to complete
-        await fetch('/api/cron')
+        await fetch('/api/cron/daily-stock-update')
       }
 
       const response = await fetch('/api/stocks')
