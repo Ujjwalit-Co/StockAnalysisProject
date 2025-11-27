@@ -58,12 +58,12 @@ export const stockService = {
                 new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Request timeout')), 10000))
             ])
 
-            // Try to get historical data
+            // Try to get historical data (Last 10 days only)
             let historical: any[] = []
             try {
                 const endDate = new Date()
                 const startDate = new Date()
-                startDate.setDate(endDate.getDate() - 30)
+                startDate.setDate(endDate.getDate() - 10)
 
                 const chartData = await Promise.race([
                     yahoo.chart(yahooSymbol, {

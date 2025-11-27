@@ -9,7 +9,7 @@ export async function GET() {
       include: {
         historical: {
           orderBy: { date: 'asc' }, 
-          take: 30, 
+          take: 10, 
         },
       },
     })

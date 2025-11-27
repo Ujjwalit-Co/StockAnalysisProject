@@ -49,9 +49,9 @@ export async function GET(request: NextRequest) {
 
     console.log(`Daily stock update completed: ${results.success.length} success, ${results.failed.length} failed (${successRate.toFixed(1)}%)`)
 
-    // Clean up old data (older than 30 days)
+    // Clean up old data (older than 10 days)
     console.log('Starting data cleanup...')
-    const cleanupResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/stocks/cleanup?before=${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`, {
+    const cleanupResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/stocks/cleanup?before=${new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`, {
       method: 'DELETE'
     })
 
